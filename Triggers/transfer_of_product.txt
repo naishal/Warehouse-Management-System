@@ -1,0 +1,25 @@
+set search_path to inventory_management_system;
+
+
+
+
+create or replace function process_transfering_product()
+	returns trigger as $transfering_product$
+begin
+	if(TG_OP = 'INSERT') then
+		update item_summary_table as i set balanced_quantity = i.balanced_quantity - new.quantity_transfered where i.product_id = new.product_id and i.godown_no = new.from_godown;
+		update item_summary_table as k set balanced_quantity = k.balanced_quantity + new.quantity_transfered where k.product_id = new.product_id and k.godown_no = new.to_godown;
+	end if;
+	if(TG_OP = 'UPDATE') then
+		update item_summary_table as i set balanced_quantity = i.balanced_quantity - new.quantity_transfered where i.product_id = new.product_id and i.godown_no = new.from_godown;
+		update item_summary_table as k set balanced_quantity = k.balanced_quantity + new.quantity_transfered where k.product_id = new.product_id and k.godown_no = new.to_godown;
+		update item_summary_table as l set balanced_quantity = l.balanced_quantity + old.quantity_transfered where l.product_id = old.product_id and l.godown_no = old.from_godown;
+		update item_summary_table as m set balanced_quantity = m.balanced_quantity - old.quantity_transfered where m.product_id = old.product_id and l.godown_no = old.to_godown;
+	end if;
+	return null;
+end;
+$transfering_product$ language plpgsql;
+
+create trigger transfering_product
+after insert or update on trasfer_details
+for each row execute procedure process_transfering_product();

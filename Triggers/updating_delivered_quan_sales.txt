@@ -1,0 +1,20 @@
+
+create or replace function  process_sr_quantity()
+	returns trigger as $sr_quantity$
+begin
+	if(TG_OP = 'INSERT') then
+		update sales_order_details as p set delivered_quantity = p.delivered_quantity + new.delivered_quantity where p.sales_order_no = new.sales_order_no and p.product_id = new.product_id;
+		update sales_order_details as p set open_quantity = p.ordered_quantity - p.delivered_quantity where p.sales_order_no = new.sales_order_no and p.product_id = new.product_id;
+	end if;
+	if(TG_OP = 'UPDATE') then
+		update sales_order_details as p set delivered_quantity = p.delivered_quantity + new.delivered_quantity - old.delivered_quantity where p.sales_order_no = new.sales_order_no and p.product_id = new.product_id;
+		update sales_order_details as p set open_quantity = p.ordered_quantity - p.delivered_quantity where p.sales_order_no = new.sales_order_no and p.product_id = new.product_id;
+	end if;
+	return null;
+end;
+$sr_quantity$ language plpgsql;
+
+
+create trigger sr_quantity
+after insert or update on sales_invoice
+for each row execute procedure process_sr_quantity();

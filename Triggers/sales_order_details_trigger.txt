@@ -1,0 +1,35 @@
+set search_path to inventory_management_system;
+
+
+
+
+create or replace function process_s_current_quantity()
+	returns trigger as $s_current_quantity$
+declare
+	sum integer := 0;
+	curr_gd real;
+	--c1 cursor(pro_id varchar(20),gd_no varchar(20)) is select * from item_summary_table where product_id = pro_id and godown_no = gd_no;
+	c2 cursor(inv_no real) is select godown_no from sales_invoice_header as i where i.invoice_no = inv_no;
+begin
+	if(TG_OP = 'INSERT' ) then 
+		open c2(new.invoice_no);
+		fetch c2 into curr_gd;
+		--open c1(product_id , curr_gd);
+		update item_summary_table as a set balanced_quantity = balanced_quantity - new.delivered_quantity where a.godown_no = curr_gd and a.product_id = new.product_id;
+		close c2;
+	end if;
+	if(TG_OP = 'UPDATE' ) then
+		open c2(invoice_no);
+		fetch c2 into curr_gd;
+		--open c1(product_id , curr_gd);
+		update item_summary_table as a set balanced_quantity = balanced_quantity - old.delivered_quantity + new.delivered_quantity where godown_no = curr_gd and a.product_id = new.product_id;
+		close c2;
+	end if;
+	return null;
+end;
+$s_current_quantity$ language plpgsql;
+
+
+create trigger s_current_quantity
+after insert or update on sales_invoice
+for each row execute procedure process_s_current_quantity();	

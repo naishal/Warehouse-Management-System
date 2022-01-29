@@ -1,0 +1,36 @@
+	
+set search_path to inventory_management_system;
+
+
+
+
+create or replace function process_balance()
+returns trigger as $balance$
+declare
+	r record;
+	sum1 real := 0;
+	sum2 real := 0;
+	r2 record;
+begin
+	For r in select * from account_summary
+	Loop
+		sum1 := 0;
+		sum2 :=0;
+		For r2 in select * from account_ledger_detail
+		loop
+			If(r.account_id = r2.account_id) then
+				sum1 = sum1 + r2.credit;
+				sum2 = sum2 + r2.debit;
+			end if;
+		end loop;
+	update account_summary as a set total_credit = sum1 where a.account_id = r.account_id; 
+	update account_summary as a set total_debit = sum2 where a.account_id = r.account_id; 
+	update account_summary as a set total_balance = sum2 - sum1 where a.account_id = r.account_id;
+	end loop; 
+	return null;
+end;
+$balance$ language plpgsql;
+
+create trigger balance
+after insert or update on account_ledger_detail
+for each row execute procedure process_balance();

@@ -1,0 +1,20 @@
+
+
+create or replace function  process_pr_quantity()
+	returns trigger as $pr_quantity$
+begin
+	if(TG_OP = 'INSERT') then
+		update purchase_order_details as p set received_quantity = p.received_quantity + new.received_quantity where p.purchase_order_no = new.purchase_order_no and p.product_id = new.product_id;
+		update purchase_order_details as p set open_quantity = p.ordered_quantity - p.received_quantity where p.purchase_order_no = new.purchase_order_no and p.product_id = new.product_id;
+	end if;
+	if(TG_OP = 'UPDATE') then
+		update purchase_order_details as p set received_quantity = p.received_quantity + new.received_quantity - old.received_quantity where p.purchase_order_no = new.purchase_order_no and p.product_id = new.product_id;
+		update purchase_order_details as p set open_quantity = p.ordered_quantity - p.received_quantity where p.purchase_order_no = new.purchase_order_no and p.product_id = new.product_id;
+	end if;
+	return null;
+end;
+$pr_quantity$ language plpgsql;
+
+create trigger pr_quantity
+after insert or update on goods_receipt_note
+for each row execute procedure process_pr_quantity();

@@ -1,0 +1,27 @@
+
+create or replace function process_sr_bill_amount()
+returns trigger as $sr_bill_amount$
+declare
+	x real;
+	c5 cursor for select price from purchase_order_details as p where p.purchase_order_no = new.purchase_order_no and p.product_id = new.product_id;
+begin
+	if(TG_OP = 'INSERT') then
+	open c5;
+	fetch c5 into x;
+	update goods_receipt_note_header as a set bill_amount = a.bill_amount + x*new.received_quantity where a.grn_no = new.grn_no;
+	
+	close c5;
+	end if;
+	if(TG_OP = 'UPDATE' and new.received_quantity != old.received_quantity) then
+		open c5;
+		fetch c5 into x;
+		update goods_receipt_note_header as a set bill_amount = a.bill_amount + x*(new.received_quantity - old.received_quantity) where a.grn_no = new.grn_no;
+		close c5;
+	end if;
+	return null;
+end;
+$sr_bill_amount$ language plpgsql;
+
+create trigger sr_bill_amount
+after insert or update on goods_receipt_note
+for each row execute procedure process_sr_bill_amount();

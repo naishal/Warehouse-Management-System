@@ -1,0 +1,15 @@
+create or replace function s_price() returns trigger as $sales_price$
+begin
+	if(TG_OP = 'INSERT') then
+		update sales_order_details set amount = NEW.delivered_quantity * NEW.price;
+	end if;
+	if(TG_OP = 'UPDATE' and new.delivered_quantity!= old.delivered_quantity) then
+		update sales_order_details set amount = new.delivered_quantity * new.price;
+	end if;
+	return null;
+end;
+$sales_price$ language plpgsql;
+
+create trigger sales_price 
+after insert or update on sales_order_details
+for each row execute procedure s_price();

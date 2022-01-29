@@ -1,0 +1,205 @@
+Question1:
+
+Retrieve the details of list of products ordered in a particular time interval.
+
+Query:
+
+select received_date, supplier_id, godown_no, product_id, unit_of_measurement, received_quantity from goods_receipt_note_header natural join goods_receipt_note where received_date>=first and received_date<=second;
+
+
+Stored procedure:
+
+set search_path to inventory_management_system;
+drop type product_details cascade;
+create type product_details as (received_date date, supplier_id real, godown_no real, product_id real, unit_of_measurement varchar(20), received_quantity real);
+
+create or replace function query1(first date, second date) returns setof product_details as $body$
+declare 
+	d product_details;
+begin
+	for d in select received_date, supplier_id, godown_no, product_id, unit_of_measurement, received_quantity from goods_receipt_note_header natural join goods_receipt_note
+	loop
+		if (d.received_date>=first and d.received_date<=second) then
+			return next d;
+		end if;
+	end loop;
+	return;
+end;
+$body$ language plpgsql;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question2:
+
+Retrieve the overall quantity of a product in stock.
+
+Query as stored procedure:
+
+set search_path to inventory_management_system;
+create or replace function query2(pro_id real) returns real as $body$
+declare 
+	sum real := 0;
+	r record;
+begin
+	for r in select * from item_summary_table
+	loop
+		if(r.product_id = pro_id) then
+			sum = sum + r.balanced_quantity;
+		end if;
+	end loop;
+	return sum;
+end;
+$body$ language plpgsql;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question3:
+
+Retrieve the total profit from all good sold over a particular time interval.
+
+Query as stored procedure:
+
+set search_path to inventory_management_system;
+
+create or replace function query3(first date, second date) returns real as $body$
+declare
+	sum real := 0;
+	y real;
+	z real;
+	r record;
+	c1 cursor(x real) is select selling_price,cost_price from product where product.product_id = x;
+begin
+	for r in select * from sales_invoice_header natural join sales_invoice
+	loop
+		if(r.delivered_date>=first and r.delivered_date<=second) then
+			open c1(r.product_id);
+			fetch c1 into y,z;
+			sum = (y-z)*r.delivered_quantity;
+			close c1;
+		end if;
+	end loop;
+	return sum;
+end;
+$body$ language plpgsql;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question4:
+
+Retrieve separate/individual profit earned from each product over a period of month.
+
+Query as stored procedure:
+
+set search_path to inventory_management_system;
+
+--drop type product_profile_type cascade;
+create type product_profile_type as (product_id real, total_profit real);
+create or replace function query4(first date, second date) returns setof product_profile_type as $body$
+declare
+	sum real;
+	y real;
+	z real;
+	r record;
+	r1 record;
+	e product_profile_type;
+	c1 cursor(x real) is select selling_price,cost_price from product where product.product_id = x;
+begin
+	for r1 in select * from product
+	loop
+	sum := 0;
+		for r in select * from sales_invoice_header natural join sales_invoice
+		loop
+			if(r.product_id = r1.product_id and r.delivered_date>=first and r.delivered_date<=second) then
+				open c1(r.product_id);
+				fetch c1 into y,z;
+				sum = (y-z)*r.delivered_quantity;
+				close c1;
+			end if;
+		end loop;
+		e.product_id = r1.product_id;
+		e.total_profit = sum;
+		return next e;
+	end loop;
+	return ;
+end;
+$body$ language plpgsql;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Queston5:
+
+Retrieve the details of goods sold over a weeks or months interval.
+
+Query:
+
+select delivered_date, customer_id, godown_no, product_id, unit_of_measurement, delivered_quantity from  sales_invoice natural join sales_invoice_header where delivered_date>= first and delivered_date<=second;
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question6:
+
+Retrieve details of product from all the go-downs whose quantity is less than a desired quantity.
+
+Query:
+
+select * from item_summary_table where balanced_quantity<(required_quantity) and product_id = (given_product_id);
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question7:
+
+Retrieve details of the product and the stock place(go-down) where a particular product is in abundance.
+
+Query:
+
+select * from item_summary_table natural join product where product_id = (given_product_id) and balanced_quantity >(given_quantity);
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question8:
+
+Retrieve details of the amount left to be paid to each supplier.
+
+Query:
+
+select "id","name",contact_no,email,address,city,"state",country, total_balance from business_associates natural join account_summary where party_type = 'S';
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question9:
+
+Retrieve details of the amount left to be received from each customer.
+
+Query:
+
+select "id", "name",contact_no,email,address,city,"state",country,total_balance from business_associates natural join account_summary where party_type = 'C';
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Question10:
+
+Retrieve amount of profit earned from each customer.
+
+Query:
+
+select customer_id,sum(profit*delivered_quantity) as total_profit from ((select product_id,(selling_price-cost_price) as profit from product) as b natural join sales_order_header natural join sales_order_details) as c group by customer_id;
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Stored_Procedure:
+
+set search_path to inventory_management_system;
+
+create or replace function ava_quantity(pro_id varchar(20)) returns integer as $body$
+declare
+	sum integer := 0;
+	x item_summary_table%rowtype;
+begin
+	for x in select * from item_summary_table where product_id = pro_id loop
+		if x.balanced_quantity is not null then 
+			sum := sum + x.balanced_quantity;
+		end if;
+	end loop;
+	return sum;
+end;
+$body$ language 'plpgsql';

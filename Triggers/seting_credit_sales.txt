@@ -1,0 +1,29 @@
+	
+set search_path to inventory_management_system;
+
+
+
+create or replace function process_sr_credit()
+returns trigger as $sr_credit$
+declare
+	x real;
+	y real;
+	c3 cursor for select account_id from business_associates as b where new.supplier_id = b.id;
+	c22 cursor for select account_id from business_associates as b where old.supplier_id = b.id;
+	r record;
+begin
+	open c3;
+	open c22;
+	fetch c3 into x;
+	fetch c22 into y;
+	delete from account_ledger_detail as a where date = old.received_date and account_id = y;
+	insert into account_ledger_detail values(x,new.received_date,null,new.bill_amount,0);
+	close c3;
+	close c22;
+	return null;
+end;
+$sr_credit$ language plpgsql;
+
+create trigger sr_credit
+after update on goods_receipt_note_header
+for each row execute procedure process_sr_credit();

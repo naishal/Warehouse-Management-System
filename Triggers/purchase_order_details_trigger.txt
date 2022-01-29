@@ -1,0 +1,32 @@
+	
+set search_path to inventory_management_system;
+
+create or replace function process_p_current_quantity()
+	returns trigger as $p_current_quantity$
+declare
+	sum real := 0;
+	curr_gd real;
+	--c1 cursor(pro_id varchar(20),gd_no varchar(20)) is select * from item_summary_table where product_id = pro_id and godown_no = gd_no;
+	c1 cursor(grn_no real) is select godown_no from goods_receipt_note_header as g where g.grn_no = grn_no;
+begin
+	if(TG_OP = 'INSERT' ) then 
+		open c1(new.grn_no);
+		fetch c1 into curr_gd;
+		--open c1(product_id , curr_gd);
+		update item_summary_table as a set balanced_quantity = balanced_quantity + new.received_quantity where a.godown_no = curr_gd and a.product_id = new.product_id;
+		close c1;
+	end if;
+	if(TG_OP = 'UPDATE' ) then
+		open c1(invoice_no);
+		fetch c1 into curr_gd;
+		--open c1(product_id , curr_gd);
+		update item_summary_table as a set balanced_quantity = balanced_quantity + old.received_quantity - new.received_quantity where a.godown_no = curr_gd and a.product_id = new.product_id;
+		close c1;
+	end if;
+	return null;
+end;
+$p_current_quantity$ language plpgsql;
+
+create trigger p_current_quantity
+after insert or update on goods_receipt_note
+for each row execute procedure process_p_current_quantity();

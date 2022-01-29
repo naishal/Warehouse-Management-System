@@ -1,0 +1,27 @@
+
+create or replace function process_pr_bill_amount()
+returns trigger as $pr_bill_amount$
+declare
+	x real;
+	c4 cursor for select price from sales_order_details as p where p.sales_order_no = new.sales_order_no and p.product_id = new.product_id;
+begin
+	if(TG_OP = 'INSERT') then
+	open c4;
+	fetch c4 into x;
+	update sales_invoice_header as a set bill_amount = a.bill_amount + x*new.delivered_quantity where a.invoice_no = new.invoice_no;
+	
+	close c4;
+	end if;
+	if(TG_OP = 'UPDATE' and new.delivered_quantity != old.delivered_quantity) then
+		open c4;
+		fetch c4 into x;
+		update sales_invoice_header as a set bill_amount = a.bill_amount + x*(new.delivered_quantity - old.delivered_quantity) where a.invoice_no = new.invoice_no;
+		close c4;
+	end if;
+	return null;
+end;
+$pr_bill_amount$ language plpgsql;
+
+create trigger pr_bill_amount
+after insert or update on sales_invoice
+for each row execute procedure process_pr_bill_amount();

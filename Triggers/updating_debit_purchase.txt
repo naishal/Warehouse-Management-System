@@ -1,0 +1,29 @@
+	
+set search_path to inventory_management_system;
+
+
+
+create or replace function process_pr_debit()
+returns trigger as $pr_debit$
+declare
+	x real;
+	y real;
+	c8 cursor for select account_id from business_associates as b where new.customer_id = b.id;
+	c21 cursor for select account_id from business_associates as b where old.customer_id = b.id;
+	r record;
+begin
+	open c8;
+	open c21;
+	fetch c8 into x;
+	fetch c21 into y;
+	delete from account_ledger_detail as a where date = old.delivered_date and account_id = y;
+	insert into account_ledger_detail values(x,new.delivered_date,null,0,new.bill_amount);
+	close c8;
+	close c21;
+	return null;
+end;
+$pr_debit$ language plpgsql;
+
+create trigger pr_debit
+after update on sales_invoice_header
+for each row execute procedure process_pr_debit();

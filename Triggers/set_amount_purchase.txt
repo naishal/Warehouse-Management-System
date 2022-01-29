@@ -1,0 +1,17 @@
+
+
+create or replace function p_price() returns trigger as $purchase_price$
+begin
+	if(TG_OP = 'INSERT') then
+		update purchase_order_details set amount = ordered_quantity * price;
+	end if;
+	if(TG_OP = 'UPDATE' and new.ordered_quantity!= old.ordered_quantity) then
+		update purchase_order_details set amount = new.ordered_quantity * new.price;
+	end if;
+	return null;
+end;
+$purchase_price$ language plpgsql;
+
+create trigger purchase_price 
+after insert or update on purchase_order_details
+for each row execute procedure p_price();

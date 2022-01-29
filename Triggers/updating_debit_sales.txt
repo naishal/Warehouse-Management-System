@@ -1,0 +1,35 @@
+
+
+create or replace function process_sr_debit()
+returns trigger as $sr_debit$
+declare
+	y real;
+	x real;
+	sum integer;
+	c9 cursor for select account_id from business_associates as b where b.id = new.supplier_id;
+	c10 cursor for select account_id from business_associates as b where b.id = old.supplier_id;
+	r record;
+begin
+	if(TG_OP = 'INSERT') then
+		open c9;
+		fetch c9 into x;
+		insert into account_ledger_detail values (x,new.date,null,0,new.amount_paid);
+		close c9;
+	end if;
+	if(TG_OP  = 'UPDATE') then
+		open c9;
+		open c10;
+		fetch c9 into x;
+		fetch c10 into y;
+		delete from account_ledger_detail as a where account_id = y and a.date = old.date;
+		insert into account_ledger_detail values(x,new.date,null,0,new.amount_paid);
+		close c9;
+		close c10;
+	end if;
+	return null;
+end;
+$sr_debit$ language plpgsql;
+
+create trigger sr_debit
+after insert or update on purchase_payment
+for each row execute procedure process_sr_debit();
